@@ -42,6 +42,12 @@ const item3 = new Item({
 
 const defaultItems = [item1, item2, item3];
 
+const listSchema = {
+    name: String,
+    items: [itemsScheme],
+};
+const List = mongoose.model('List', listSchema);
+
 app.get('/', function (req, res) {
     Item.find({}, function (err, foundItems) {
         // console.log(foundItems);
@@ -63,15 +69,51 @@ app.get('/', function (req, res) {
     });
 });
 
+app.get('/:customListName', function (req, res) {
+    const customListName = req.params.customListName;
+
+    List.findOne({ name: customListName }, function (err, foundList) {
+        if (!err) {
+            if (!foundList) {
+                // console.log("Doesn't exit");
+                const list = new List({
+                    name: customListName,
+                    items: defaultItems,
+                });
+
+                list.save();
+                res.redirect('/' + customListName);
+            } else {
+                // console.log('Exist');
+                res.render('list', {
+                    listTitle: foundList.name,
+                    newListItems: foundList.items,
+                });
+            }
+        } else {
+            console.log(err);
+        }
+    });
+});
+
 app.post('/', function (req, res) {
     const itemName = req.body.newItem;
+    const listName = req.body.list;
 
     const item = new Item({
         name: itemName,
     });
 
-    item.save();
-    res.redirect('/');
+    if (listName === 'Today') {
+        item.save();
+        res.redirect('/');
+    } else {
+        List.findOne({ name: listName }, function (err, foundList) {
+            foundList.items.push(item);
+            foundList.save();
+            res.redirect('/' + listName);
+        });
+    }
 });
 
 app.post('/delete', function (req, res) {
@@ -96,14 +138,6 @@ app.post('/delete', function (req, res) {
     });
 
     res.redirect('/');
-});
-
-app.get('/work', function (req, res) {
-    res.render('list', { listTitle: 'Work List', newListItems: workItems });
-});
-
-app.get('/about', function (req, res) {
-    res.render('about');
 });
 
 app.listen(3000, function () {
